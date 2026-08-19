@@ -143,6 +143,12 @@ class DFlash2Speculator(DFlashSpeculator):
         self._cached_candidate_ids = torch.zeros(
             self._selector_scores.shape, dtype=torch.int64, device=device
         )
+        if self.draft_logits is not None:
+            # draft_logits_spec asked the base class for this fill, and this
+            # restates it rather than trusting the allocation: the cache kernel
+            # writes only the K candidates, so a column it never touches must
+            # read as impossible, whatever built the tensor.
+            self.draft_logits.fill_(-float("inf"))
 
     def draft_logits_spec(self, vllm_config: VllmConfig) -> tuple[torch.dtype, float]:
         # fp32, not the head dtype. Rounding real selector scores to bf16 moves
