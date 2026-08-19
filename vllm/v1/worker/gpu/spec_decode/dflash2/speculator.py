@@ -41,11 +41,14 @@ def _selector_walk_kernel(
         step_req_state = tl.load(req_state_ptr + flat)
         valid &= step_req_state == req_state
         score_base = (flat * top_k + previous) * top_k
+        # Load at the width the argmax will reduce in. Loading fp32 and letting
+        # the noise promote to fp64 gives the two arms of that branch different
+        # types, which Triton rejects on ROCm.
         scores = tl.load(
             scores_ptr + score_base + offsets,
             mask=mask & valid,
             other=float("-inf"),
-        ).to(tl.float32)
+        ).to(tl.float64 if USE_FP64 else tl.float32)
         # Rejection must never observe an empty or nonfinite proposal.
         scores = tl.where(scores == scores, scores, -float("inf"))
         first_pos_inf = tl.min(
