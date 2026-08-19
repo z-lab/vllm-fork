@@ -120,7 +120,6 @@ class DFlash2Speculator(DFlashSpeculator):
             torch.arange(self.max_num_reqs, dtype=torch.int64, device=device)
             * self.num_query_per_req
         )
-        self._selector_tokens = torch.empty_like(self.draft_tokens)
         self._selector_scores = torch.empty(
             self.max_num_reqs,
             self.num_speculative_steps,
@@ -158,7 +157,7 @@ class DFlash2Speculator(DFlashSpeculator):
             self.sample_idx_mapping,
             self.temperature,
             self.seeds,
-            self._selector_tokens,
+            self.draft_tokens,
             self._selector_scores,
             num_steps=self.num_speculative_steps,
             top_k=self.selector_top_k,
@@ -221,4 +220,3 @@ class DFlash2Speculator(DFlashSpeculator):
         )
         self._sample_path(candidate_ids, scores, num_reqs)
         self._cache_draft_logits(candidate_ids, num_sample)
-        self.draft_tokens[:num_reqs].copy_(self._selector_tokens[:num_reqs])
