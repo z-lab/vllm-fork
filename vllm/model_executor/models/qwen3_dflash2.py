@@ -15,7 +15,10 @@ from vllm.distributed import (
     tensor_model_parallel_all_gather,
 )
 from vllm.logger import init_logger
-from vllm.model_executor.layers.linear import ReplicatedLinear
+from vllm.model_executor.layers.linear import (
+    ReplicatedLinear,
+    UnquantizedLinearMethod,
+)
 from vllm.model_executor.layers.quantization.base_config import QuantizationConfig
 from vllm.model_executor.layers.vocab_parallel_embedding import (
     UnquantizedEmbeddingMethod,
@@ -317,9 +320,16 @@ class DFlash2Qwen3ForCausalLM(DFlashQwen3ForCausalLM):
     def compute_candidates(
         self, hidden_states: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        if not isinstance(self.lm_head.quant_method, UnquantizedEmbeddingMethod):
+        # Both of these dispatch the same unquantized GEMM; which one a
+        # ParallelLMHead carries depends on the quantization config, and a config
+        # that leaves the head alone still hands it the linear one.
+        if not isinstance(
+            self.lm_head.quant_method,
+            (UnquantizedEmbeddingMethod, UnquantizedLinearMethod),
+        ):
             raise ValueError(
-                "DFlash2 requires an unquantized target LM head for candidate TopK."
+                "DFlash2 requires an unquantized target LM head for candidate "
+                f"TopK; got {type(self.lm_head.quant_method).__name__}."
             )
 
         selector = self.model.candidate_selector
